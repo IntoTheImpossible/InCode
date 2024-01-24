@@ -86,7 +86,6 @@ def encryption(imagePath, word, imageName,encryptedDir):
     #! remove original image from folder 'uploads'
     os.remove(imagePath)
   
-
     return Key.keyTransformation(Key.encryptor(encryptionKeys)), hashEncryptionKey.decode("utf-8")
 
 

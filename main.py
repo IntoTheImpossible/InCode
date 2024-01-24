@@ -18,7 +18,6 @@ app.secret_key = generate_random_key(32)
 
 # !Config for mail
 #todo uncomment this for config mail
-
 # app.config['MAIL_SERVER'] = ''  # Replace with your SMTP server
 # app.config['MAIL_PORT'] = 0  # Replace with the SMTP port
 # app.config['MAIL_USE_TLS'] = True
