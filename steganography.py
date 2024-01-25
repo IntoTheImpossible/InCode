@@ -1,122 +1,111 @@
 import os
 from PIL import Image,ImageDraw
 import random
-import cryptography.fernet as fernet
+from hash import Hash
+
 
 def check(imagePath):
+    "Check does file exist"
     if not os.path.exists(imagePath):
         return "File not found"
-    if os.path.split(imagePath)[1].split('.')[1] != 'png':
-        return "File format not supported"
     return True
 
 
-def encryption(imagePath, word, imageName,encryptedDir):
+def encryption(imagePath,phrase,encryptedDir, password):
+    """ encryption function takes an image, a phrase, and a password and returns an encrypted image and a key"""
+    # check does file exist
     if check(imagePath) != True:
         return check(imagePath)
-    
+    #open image and get data, create object Image
     img = Image.open(imagePath)
     draw = ImageDraw.Draw(img)
     width,height = img.size
     max_pixels = width*height
-    
     # list of keys 
     encryptionKeys = [] 
 
-    # generate key
-    hashEncryptionKey = fernet.Fernet.generate_key()
-    # create object for encrypt
-    f=fernet.Fernet(hashEncryptionKey)
-    # encrypt text
-    token = f.encrypt(word.encode("utf-8")) 
-    word = token.decode("utf-8") 
-
-
-
+    #encode hash
+    phrase = Hash.encrypt(phrase, password)
     #if size of hashed text is biger than quantity of pixels exist 
-    if(len(word)>max_pixels):
-        return "What with size?"
+    if(len(phrase)>max_pixels):
+        return "sizeError"
 
     #transfrom to list of char in ASCII from words
     bin_word = []
-    for char in word:
+    for char in phrase:
         temp = ord(char)
         bin_word.append(temp)
  
-    def rand():#generate positions of pixel on the map
-  
+    def positionGenerator():
+        """generate random coordinates and check how close to char from text. A key is added if passed"""
         for ordChar in bin_word:
-      
-            min = ordChar - 20
+            #accuracy of color
+            min = ordChar - 25
             max = ordChar + 20
             def generator():
+
+                #generate random coordinates
                 x = random.randint(0,width-1)
                 y = random.randint(0,height-1)
 
-                if ((x,y) in encryptionKeys):
-                    generator()
-                else:
+                if((x,y) not in encryptionKeys):
                     rgb = img.getpixel((x,y))
-                    result = None
+                    
+                    for index,color in enumerate(rgb):
+                        if(min <= color <= max):
+                            encryptionKeys.append((x,y,index)) ###* result = ((x,y), index)
+                            data = list(rgb)
+                            data[0] = ordChar
+                            data = tuple(data)
+                            draw.point((x,y),data)
+                        else:
+                            generator()
 
-                    for index,color in enumerate(rgb):#check how close to char from text
-                        if(min  <= color <= max):
-                            result = (x,y, index)###* result = ((x,y), index)
-                            break
-                        
-                    if(result != None): #add key if passed
-                        encryptionKeys.append(result)
-                        data = list(rgb)
-                        data[result[2]] = ordChar
-                        data = tuple(data)
-                        draw.point((x,y),data)
-
-                    else:#recursion
-                        generator()    
-            generator()
-    
-    try:
-        rand()
-    except RecursionError:
-        return "Something is wrong. Try again"
+    positionGenerator()
     # save encrypted image
-    img.save(encryptedDir+imageName)
-
-
-    #! remove original image from folder 'uploads'
+    img.save(encryptedDir+img.filename.split('/')[1])
+    #remove original image from uploads
     os.remove(imagePath)
-  
-    return Key.keyTransformation(Key.encryptor(encryptionKeys)), hashEncryptionKey.decode("utf-8")
+    #Encrypt key by Key class
+    encryptedKeys = Key.keyTransformation(Key.encryptor(encryptionKeys))
+    #save keys amd password to text file
+    with open(f'textfiles/{img.filename.split('/')[1].strip('.png')}.txt', 'w') as file:
+        file.write('Key: '+str(encryptedKeys))
+        file.write('\n'*4)
+        file.write('Password: '+password)
+    return encryptedKeys
 
 
-def decode(imagePath, stringOfKeys, key):
+def decode(imagePath, stringOfKeys, password):
+    """ decode function takes an image, a key, and a password and returns a decoded phrase"""
     if check(imagePath) != True:
         return check(imagePath)
     
-
+    #decode key by Key class
     decodeKeys = Key.decryptor(Key.textTransformation(stringOfKeys))
     decodedPhrase = []
+
+    #open image and get data, create object Image
     img = Image.open(imagePath)
 
+    #decode phrase by keys
     for xyz in decodeKeys:
         x = xyz[0]
         y = xyz[1]
         z = xyz[2]
         rgb = img.getpixel((x,y))
         decodedPhrase.append(chr(rgb[z]))
-    
-    decodedPhrase="".join(decodedPhrase)
-    
-    # create object for encrypt
-    f=fernet.Fernet(key.encode("utf-8"))
-    # decrypt text
-    decodedPhrase = f.decrypt(decodedPhrase.encode("utf-8")).decode("utf-8")
-    # decode text
 
+    #convert list to string
+    decodedPhrase="".join(decodedPhrase)
+    decodedPhrase=str(decodedPhrase)
+    #Tdecode hash
+    decodedPhrase = Hash.decrypt(decodedPhrase, password)
 
     return decodedPhrase
-
+#class for mixing keys
 class Key():
+    """Key class for encrypting and decrypting keys and transforming them to strings and vice versa"""
         #encryptor function takes a key and encrypts it by applying a series of transformations
     def encryptor(key):
         """
@@ -225,3 +214,4 @@ class Key():
             answer.append(tuple(tempTuple))
             del splited[0:3]
         return answer
+    
