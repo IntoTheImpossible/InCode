@@ -18,11 +18,10 @@
     <div class="d-flex justify-content-center p-4">
       <div class="card border-primary">
         <div class="card-body">
+          <!-- TODO uncomment for mail -->
           <!-- ! for mail change  -->
           <h4 class="card-title">Save your password, key and download image</h4>
           <p class="card-text">{{ret_paswd}}</p>
-          <h3>Your key</h3>
-          <p class="card-text">{{key}}</p>
         </div>
       </div>
     </div>
@@ -34,10 +33,17 @@
           <input type="submit" value="Send" class="btn btn-dark">
         </form> -->
         <!-- !==================================== -->
-        <form action="/download/{{name}}" method="post">
-          <a href="/" class="btn btn-danger">Main</a>
+        
+        <form action="/" method="get" class="p-2">
+          <button type="submit" class="btn btn-danger">Main</button>
+        </form>
+        <form action="/download/{{name}}" method="post" class="p-2">
          <button type="submit" class="btn btn-success">Download image</button>
         </form>
+        <form action="/download-keys/{{name}}" method="post" class="p-2">
+         <button type="submit" class="btn btn-success">Download keys and password</button>
+        </form>
+
     </div>
    
    
