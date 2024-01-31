@@ -82,7 +82,7 @@ class Steganography:
         encryptedKeys = KeyMixer.keyTransformation(KeyMixer.encryptor(encryptionKeys))
         #save keys amd password to text file
         with open(f'textfiles/{img.filename.split("/")[1].replace(".png", "")}.txt', 'w') as file:
-            file.write('KeyMixer: '+str(encryptedKeys))
+            file.write('Keys: '+str(encryptedKeys))
             file.write('\n'*4)
             file.write('Password: '+password)
         return str(encryptedKeys)
