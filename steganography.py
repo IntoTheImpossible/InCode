@@ -1,122 +1,124 @@
 import os
 from PIL import Image,ImageDraw
 import random
-import cryptography.fernet as fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from base64 import urlsafe_b64encode, urlsafe_b64decode
 
-def check(imagePath):
-    if not os.path.exists(imagePath):
-        return "File not found"
-    if os.path.split(imagePath)[1].split('.')[1] != 'png':
-        return "File format not supported"
-    return True
+class Steganography:
 
+    def check(imagePath):
+        "Check does file exist"
+        if not os.path.exists(imagePath):
+            return "File not found"
+        return True
 
-def encryption(imagePath, word, imageName,encryptedDir):
-    if check(imagePath) != True:
-        return check(imagePath)
+    def encryption(imagePath,phrase,encryptedDir, password):
+        """ encryption function takes an image, a phrase, and a password and returns an encrypted image and a key"""
+        # check does file exist
+        if Steganography.check(imagePath) != True:
+            return Steganography.check(imagePath)
+        #open image and get data, create object Image
+        img = Image.open(imagePath)
+        draw = ImageDraw.Draw(img)
+        width,height = img.size
+        max_pixels = width*height
+        # list of keys 
+        encryptionKeys = [] 
+
+        #encode hash
+        phrase = Hash.encrypt(phrase, password)
+        #if size of hashed text is biger than quantity of pixels exist 
+        if(len(phrase)>max_pixels):
+            return "sizeError"
+
+        #transfrom to list of char in ASCII from words
+        bin_word = []
+        for char in phrase:
+            temp = ord(char)
+            bin_word.append(temp)
     
-    img = Image.open(imagePath)
-    draw = ImageDraw.Draw(img)
-    width,height = img.size
-    max_pixels = width*height
-    
-    # list of keys 
-    encryptionKeys = [] 
+        def positionGenerator():
+            """generate random coordinates and check how close to char from text. A key is added if passed"""
+            for ordChar in bin_word:
+                #accuracy of color
+                min = ordChar - 25
+                max = ordChar + 25
 
-    # generate key
-    hashEncryptionKey = fernet.Fernet.generate_key()
-    # create object for encrypt
-    f=fernet.Fernet(hashEncryptionKey)
-    # encrypt text
-    token = f.encrypt(word.encode("utf-8")) 
-    word = token.decode("utf-8") 
+                def generator():
 
+                    #generate random coordinates
+                    x = random.randint(0,width-1)
+                    y = random.randint(0,height-1)
+
+                    if((x,y) not in encryptionKeys):
 
 
-    #if size of hashed text is biger than quantity of pixels exist 
-    if(len(word)>max_pixels):
-        return "What with size?"
-
-    #transfrom to list of char in ASCII from words
-    bin_word = []
-    for char in word:
-        temp = ord(char)
-        bin_word.append(temp)
- 
-    def rand():#generate positions of pixel on the map
-  
-        for ordChar in bin_word:
-      
-            min = ordChar - 20
-            max = ordChar + 20
-            def generator():
-                x = random.randint(0,width-1)
-                y = random.randint(0,height-1)
-
-                if ((x,y) in encryptionKeys):
-                    generator()
-                else:
-                    rgb = img.getpixel((x,y))
-                    result = None
-
-                    for index,color in enumerate(rgb):#check how close to char from text
-                        if(min  <= color <= max):
-                            result = (x,y, index)###* result = ((x,y), index)
-                            break
                         
-                    if(result != None): #add key if passed
-                        encryptionKeys.append(result)
-                        data = list(rgb)
-                        data[result[2]] = ordChar
-                        data = tuple(data)
-                        draw.point((x,y),data)
-
-                    else:#recursion
-                        generator()    
-            generator()
-    
-    try:
-        rand()
-    except RecursionError:
-        return "Something is wrong. Try again"
-    # save encrypted image
-    img.save(encryptedDir+imageName)
+                        rgb = img.getpixel((x,y))
+                        
+                        for index,color in enumerate(rgb):
 
 
-    #! remove original image from folder 'uploads'
-    os.remove(imagePath)
-  
-    return Key.keyTransformation(Key.encryptor(encryptionKeys)), hashEncryptionKey.decode("utf-8")
+                            if (min <= color <= max) and index != None:
+                                encryptionKeys.append((x,y,index)) ###* result = ((x,y), index)
+                                data = list(rgb)
+                                data[0] = ordChar
+                                data = tuple(data)
+                                draw.point((x,y),data)
+                            else:
+                                generator()
+                            break
+                                    
+                generator()
+        positionGenerator()
+        # save encrypted image
+        img.save(encryptedDir+img.filename.split('/')[1])
+        #remove original image from uploads
+        os.remove(imagePath)
+        #Encrypt key by KeyMixer class
+        encryptedKeys = KeyMixer.keyTransformation(KeyMixer.encryptor(encryptionKeys))
+        #save keys amd password to text file
+        with open(f'textfiles/{img.filename.split("/")[1].replace(".png", "")}.txt', 'w') as file:
+            file.write('KeyMixer: '+str(encryptedKeys))
+            file.write('\n'*4)
+            file.write('Password: '+password)
+        return str(encryptedKeys)
 
 
-def decode(imagePath, stringOfKeys, key):
-    if check(imagePath) != True:
-        return check(imagePath)
-    
+    def decode(imagePath, stringOfKeys, password):
+        """ decode function takes an image, a key, and a password and returns a decoded phrase"""
+        if Steganography.check(imagePath) != True:
+            return Steganography.check(imagePath)
+        
+        #decode key by KeyMixer class
+        decodeKeys = KeyMixer.decryptor(KeyMixer.textTransformation(stringOfKeys))
 
-    decodeKeys = Key.decryptor(Key.textTransformation(stringOfKeys))
-    decodedPhrase = []
-    img = Image.open(imagePath)
+        decodedPhrase = []
 
-    for xyz in decodeKeys:
-        x = xyz[0]
-        y = xyz[1]
-        z = xyz[2]
-        rgb = img.getpixel((x,y))
-        decodedPhrase.append(chr(rgb[z]))
-    
-    decodedPhrase="".join(decodedPhrase)
-    
-    # create object for encrypt
-    f=fernet.Fernet(key.encode("utf-8"))
-    # decrypt text
-    decodedPhrase = f.decrypt(decodedPhrase.encode("utf-8")).decode("utf-8")
-    # decode text
+        #open image and get data, create object Image
+        img = Image.open(imagePath)
 
+        #decode phrase by keys
+        for xyz in decodeKeys:
+            x = xyz[0]
+            y = xyz[1]
+            z = xyz[2]
+            rgb = img.getpixel((x,y))
+            decodedPhrase.append(chr(rgb[z]))
 
-    return decodedPhrase
+        #convert list to string
+        decodedPhrase="".join(decodedPhrase)
+        decodedPhrase=str(decodedPhrase)
+        #Tdecode hash
+        decodedPhrase = Hash.decrypt(decodedPhrase, password)
 
-class Key():
+        return decodedPhrase
+#class for mixing keys
+class KeyMixer():
+    """KeyMixer class for encrypting and decrypting keys and transforming them to strings and vice versa"""
         #encryptor function takes a key and encrypts it by applying a series of transformations
     def encryptor(key):
         """
@@ -167,6 +169,30 @@ class Key():
                 elif 4500<=j+55<5000:    
                     j+=55
                     timelist.append(j)
+                elif 5000<=j+60<5500:
+                    j+=60
+                    timelist.append(j)
+                elif 5500<=j+65<6000:
+                    j+=65
+                    timelist.append(j)
+                elif 6000<=j+70<6500:
+                    j+=70
+                    timelist.append(j)
+                elif 6500<=j+75<7000:
+                    j+=75
+                    timelist.append(j)
+                elif 7000<=j+80<8000:
+                    j+=80
+                    timelist.append(j)
+                elif 8000<=j+85<9000:
+                    j+=85
+                    timelist.append(j)
+                elif 9000<=j+90<10000:
+                    j+=90
+                    timelist.append(j)
+                elif 10000<=j+95:
+                    j+=100
+                    timelist.append(j)
             endedKey.append(tuple(timelist))
         return endedKey
     #decryptor function takes an encrypted key and decrypts it by reversing the applied transformations
@@ -202,6 +228,45 @@ class Key():
                 elif 2000 <= j < 2500:
                     j -= 30
                     timelist.append(j)
+                elif 2500 <= j < 3000:
+                    j -= 35
+                    timelist.append(j)
+                elif 3000 <= j < 3500:
+                    j -= 40
+                    timelist.append(j)
+                elif 3500 <= j < 4000:
+                    j -= 45
+                    timelist.append(j)
+                elif 4000 <= j < 4500:
+                    j -= 50
+                    timelist.append(j)
+                elif 4500 <= j < 5000:
+                    j -= 55
+                    timelist.append(j)
+                elif 5000 <= j < 5500:
+                    j -= 60
+                    timelist.append(j)
+                elif 5500 <= j < 6000:
+                    j -= 65
+                    timelist.append(j)
+                elif 6000 <= j < 6500:
+                    j -= 70
+                    timelist.append(j)
+                elif 6500 <= j < 7000:
+                    j -= 75
+                    timelist.append(j)
+                elif 7000 <= j < 8000:
+                    j -= 80
+                    timelist.append(j)
+                elif 8000 <= j < 9000:
+                    j -= 85
+                    timelist.append(j)
+                elif 9000 <= j < 10000:
+                    j -= 90
+                    timelist.append(j)
+                elif 10000 <= j:
+                    j -= 100
+                    timelist.append(j)
             original_key.append(tuple(timelist))
         return original_key
     #keyTransformation function takes a key and converts it to a string
@@ -225,3 +290,41 @@ class Key():
             answer.append(tuple(tempTuple))
             del splited[0:3]
         return answer
+    
+class Hash:
+    """Hash class for hashing and verifying passwords"""
+    def derive_key_and_iv(password, length=32):
+        """Derive a secret key and an IV from a given password"""
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            #TODO add salt if needed
+            salt=b'',  #! Empty salt
+            iterations=100000,
+            length=length * 2  # Double the length for both key and IV
+        )
+        key_iv = kdf.derive(password.encode())
+        key, iv = key_iv[:length], key_iv[length:length+16]  # Assuming a 16-byte IV for AES
+        return key, iv
+
+    def encrypt(plaintext, password):
+        """Encrypt plaintext using AES-256 CFB mode"""
+        key, iv = Hash.derive_key_and_iv(password)
+        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        ciphertext = encryptor.update(plaintext.encode()) + encryptor.finalize()
+        return urlsafe_b64encode(iv + ciphertext).decode('utf-8')
+
+    def decrypt(ciphertext:str, password):
+        """Decrypt ciphertext using AES-256 CFB mode"""
+    
+        data = urlsafe_b64decode(ciphertext)
+    
+        iv = data[:16]  # Extract the IV (16 bytes)
+
+        ciphertext = data[16:]
+    
+        key, _ = Hash.derive_key_and_iv(password)
+        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        decrypted_text = decryptor.update(ciphertext) + decryptor.finalize()
+        return decrypted_text.decode()
