@@ -210,7 +210,7 @@ class KeyMixer():
         for i in range(len(encrypted_key)):
             timelist = []
             for j in encrypted_key[i]:
-                if 0 <= j < 9:
+                if 0 <= j < 10:
                     j -= 5
                     timelist.append(j)
                 elif 10 <= j < 500:
