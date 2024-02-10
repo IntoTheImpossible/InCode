@@ -1,4 +1,3 @@
-from flask_testing import TestCase
 import unittest
 from main import app
 from steganography import KeyMixer
